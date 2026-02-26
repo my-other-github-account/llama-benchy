@@ -38,6 +38,14 @@ class BenchmarkRunner:
                 tokenizer = self.prompt_gen.corpus.get_tokenizer() if self.config.adapt_prompt else None
                 self.delta_user, self.delta_context = await self.client.warmup(session, tokenizer)
 
+            # Coherence test after warmup (by default, unless skipped)
+            if not self.config.skip_coherence:
+                if not await self.client.run_coherence_test(session):
+                    print("\nBenchmark failed due to coherence test failure.")
+                    raise SystemExit(1)
+            else:
+                print("\nSkipping coherence test (--skip-coherence specified)")
+
             # Measure latency
             latency = await self.client.measure_latency(session, self.config.latency_mode)
 

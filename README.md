@@ -31,6 +31,7 @@ As of January 2nd, 2026, I wasn't able to find any existing benchmarking tool th
 - Supports concurrent requests (`--concurrency`) to measure throughput under load.
 - Can save results to file in Markdown, JSON, or CSV format.
 - Can save granular time-series data for token generation when JSON output is used (`--save-total-throughput-timeseries` and `--save-all-throughput-timeseries`).
+- Runs a coherence test after warmup to verify model responds correctly (default, can be skipped with `--skip-coherence`).
 
 # Current Limitations
 
@@ -166,6 +167,7 @@ Generally you don't need to disable prompt caching on the server, as a probabili
 -   `--book-url`: URL of a book to use for text generation (Defaults to Sherlock Holmes).
 -   `--latency-mode`: Method to measure latency: 'api' (call list models function) - default, 'generation' (single token generation), or 'none' (skip latency measurement).
 -   `--no-warmup`: Skip warmup phase.
+-   `--skip-coherence`: Skip coherence test after warmup.
 -   `--adapt-prompt`: Adapt prompt size based on warmup token usage delta (Default: True).
 -   `--no-adapt-prompt`: Disable prompt size adaptation.
 -   `--enable-prefix-caching`: Enable prefix caching performance measurement. When enabled (and depth > 0), it performs a two-step benchmark: first loading the context (reported as `ctx_pp`), then running the prompt with the cached context.

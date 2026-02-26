@@ -95,6 +95,11 @@ async def list_models():
         ]
     }
 
+# Coherence test prompt response
+COHERENCE_TEST_PROMPT = "What is the capital of France? Please reply with one word only"
+COHERENCE_TEST_RESPONSE = "Paris"
+
+
 @app.post("/chat/completions")
 @app.post("/v1/chat/completions")
 async def chat_completions(request: ChatCompletionRequest):
@@ -148,30 +153,37 @@ async def chat_completions(request: ChatCompletionRequest):
     request_id = f"chatcmpl-{uuid.uuid4()}"
     created_time = int(time.time())
     
+    # Check for coherence test prompt
+    is_coherence_test = False
+    for msg in request.messages:
+        if msg.content == COHERENCE_TEST_PROMPT:
+            is_coherence_test = True
+            break
+    logger.info(f"Coherence test detection: is_coherence_test={is_coherence_test}")
+
     # Log the decision for debugging
     logger.info(f"Model: {request.model}, Prompt Tokens: {total_prompt_tokens} (Sys: {system_tokens}, User: {user_tokens}), Delay tokens: {tokens_to_process}, Delay: {prompt_delay:.4f}s")
-    
+
     # Simulate Prompt Processing Delay using drift correction
     # Account for time spent in token counting and logic
     elapsed_proc = time.perf_counter() - start_proc_time
     adjusted_prompt_delay = max(0.0, prompt_delay - elapsed_proc)
-    
+
     if adjusted_prompt_delay > 0:
         await asyncio.sleep(adjusted_prompt_delay)
-    
+
     if request.stream:
         async def event_generator():
             # Generate tokens
             stream_start_time = time.perf_counter()
+            token_text = COHERENCE_TEST_RESPONSE + " " if is_coherence_test else "mock "
             for i in range(num_completion_tokens):
                 target_time = stream_start_time + ((i + 1) * token_interval)
                 now = time.perf_counter()
                 sleep_duration = target_time - now
-                
+
                 if sleep_duration > 0:
                     await asyncio.sleep(sleep_duration)
-                
-                token_text = "mock "
                 chunk = {
                     "id": request_id,
                     "object": "chat.completion.chunk",
@@ -226,8 +238,8 @@ async def chat_completions(request: ChatCompletionRequest):
     else:
         # Non-streaming
         await asyncio.sleep(num_completion_tokens * token_interval)
-        
-        response_text = "mock " * num_completion_tokens
+
+        response_text = COHERENCE_TEST_RESPONSE + " " if is_coherence_test else "mock " * num_completion_tokens
         
         return {
             "id": request_id,

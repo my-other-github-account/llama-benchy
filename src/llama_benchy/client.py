@@ -61,22 +61,60 @@ class LLMClient:
             return avg_latency
         return 0
 
+    async def run_coherence_test(self, session: aiohttp.ClientSession) -> bool:
+        """Run coherence test after warmup to verify model responds correctly."""
+        print("\nRunning coherence test...")
+        prompt = "What is the capital of France? Please reply with one word only"
+        payload = {
+            "model": self.model_name,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": 100
+        }
+
+        try:
+            async with session.post(f"{self.base_url}/chat/completions", json=payload, headers=self.headers) as response:
+                response_json = await response.json()
+
+                if 'choices' not in response_json or len(response_json['choices']) == 0:
+                    print("Coherence test FAILED: No choices in response")
+                    return False
+
+                choice = response_json['choices'][0].get('message', {})
+                content = choice.get('content', '')
+                # Also check reasoning fields for thinking models
+                reasoning = choice.get('reasoning', '') or choice.get('reasoning_content', '')
+                full_content = (content + reasoning).lower()
+
+                if 'paris' in full_content:
+                    print("Coherence test PASSED.")
+                    return True
+                else:
+                    print(f"Coherence test FAILED: Expected 'Paris'. Got: {content[:200]}...")
+                    return False
+        except Exception as e:
+            print(f"Coherence test FAILED with error: {e}")
+            return False
+
     async def warmup(self, session: aiohttp.ClientSession, tokenizer=None):
         print("Warming up...")
         warmup_text = "Warmup " * 10
-        
+
         delta_user = 0
         delta_context = 0
-        
+
         # 1. User only
         payload_user = {
             "model": self.model_name,
             "messages": [{"role": "user", "content": warmup_text}],
             "max_tokens": 1
         }
-        
+
         try:
             async with session.post(f"{self.base_url}/chat/completions", json=payload_user, headers=self.headers) as response:
+                if response.status != 200:
+                    error_text = await response.text()
+                    print(f"Warmup failed: HTTP {response.status}: {error_text}")
+                    raise SystemExit(1)
                 response_json = await response.json()
                 if tokenizer:
                     if 'usage' in response_json:
@@ -100,6 +138,10 @@ class LLMClient:
                     "max_tokens": 1
                 }
                 async with session.post(f"{self.base_url}/chat/completions", json=payload_sys_empty, headers=self.headers) as response:
+                    if response.status != 200:
+                        error_text = await response.text()
+                        print(f"Warmup failed: HTTP {response.status}: {error_text}")
+                        raise SystemExit(1)
                     response_json = await response.json()
                     if 'usage' in response_json:
                         prompt_tokens = response_json['usage']['prompt_tokens']
@@ -107,9 +149,10 @@ class LLMClient:
                         delta_context = prompt_tokens - local_tokens
                         print(f"Warmup (System+Empty) complete. Delta: {delta_context} tokens (Server: {prompt_tokens}, Local: {local_tokens})")
                     else:
-                         delta_context = delta_user
+                        delta_context = delta_user
         except Exception as e:
             print(f"Warmup failed: {e}")
+            raise SystemExit(1)
         return delta_user, delta_context
 
     async def run_generation(
