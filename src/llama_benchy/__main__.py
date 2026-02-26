@@ -4,6 +4,7 @@ Main entry point for the llama-benchy CLI.
 
 import asyncio
 import datetime
+import sys
 from . import __version__
 from .config import BenchmarkConfig
 from .corpus import TokenizedCorpus
@@ -39,7 +40,10 @@ async def main_async():
 
 def main():
     """Entry point for the CLI command."""
-    asyncio.run(main_async())
+    try:
+        asyncio.run(main_async())
+    except KeyboardInterrupt:
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()
