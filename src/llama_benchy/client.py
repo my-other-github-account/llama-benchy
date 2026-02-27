@@ -80,9 +80,9 @@ class LLMClient:
                     return False
 
                 choice = response_json['choices'][0].get('message', {})
-                content = choice.get('content', '')
+                content = choice.get('content') or ''
                 # Also check reasoning fields for thinking models
-                reasoning = choice.get('reasoning', '') or choice.get('reasoning_content', '')
+                reasoning = choice.get('reasoning') or choice.get('reasoning_content') or ''
                 full_content = (content + reasoning).lower()
 
                 if 'paris' in full_content:
