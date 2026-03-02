@@ -27,6 +27,8 @@ class BenchmarkConfig(BaseModel):
     result_format: str = Field("md", description="Output format (md, json, csv)")
     save_total_throughput_timeseries: bool = Field(False, description="Save calculated TOTAL throughput for each 1 second window inside peak throughput calculation during the run.")
     save_all_throughput_timeseries: bool = Field(False, description="Save calculated throughput timeseries for EACH individual request.")
+    exit_on_first_fail: bool = Field(False, description="Stop execution on first failed test and exit with non-zero status")
+    no_results_on_fail: bool = Field(False, description="Prevent saving/printing results when error is experienced, turns on --exit-on-first-fail as well")
 
     @classmethod
     def from_args(cls):
@@ -55,8 +57,13 @@ class BenchmarkConfig(BaseModel):
         parser.add_argument("--format", type=str, default="md", choices=["md", "json", "csv"], help="Output format")
         parser.add_argument("--save-total-throughput-timeseries", action="store_true", help="Save calculated TOTAL throughput for each 1 second window inside peak throughput calculation during the run.")
         parser.add_argument("--save-all-throughput-timeseries", action="store_true", help="Save calculated throughput timeseries for EACH individual request.")
+        parser.add_argument("--exit-on-first-fail", action="store_true", help="Stop execution on first failed test and exit with non-zero status")
+        parser.add_argument("--no-results-on-fail", action="store_true", help="Prevent saving/printing results when error is experienced, turns on --exit-on-first-fail as well")
           
         args = parser.parse_args()
+
+        if args.no_results_on_fail:
+            args.exit_on_first_fail = True
         
         return cls(
             base_url=args.base_url,
@@ -80,5 +87,7 @@ class BenchmarkConfig(BaseModel):
             save_result=args.save_result,
             result_format=args.format,
             save_total_throughput_timeseries=args.save_total_throughput_timeseries,
-            save_all_throughput_timeseries=args.save_all_throughput_timeseries
+            save_all_throughput_timeseries=args.save_all_throughput_timeseries,
+            exit_on_first_fail=args.exit_on_first_fail,
+            no_results_on_fail=args.no_results_on_fail
         )

@@ -1,6 +1,7 @@
 import asyncio
 import subprocess
 import time
+import sys
 from datetime import datetime, timezone
 from typing import List
 import aiohttp
@@ -10,6 +11,9 @@ from .config import BenchmarkConfig
 from .client import LLMClient
 from .prompts import PromptGenerator
 from .results import BenchmarkResults, BenchmarkMetadata
+
+class BenchmarkFailure(Exception):
+    pass
 
 class BenchmarkRunner:
     def __init__(self, config: BenchmarkConfig, client: LLMClient, prompt_generator: PromptGenerator):
@@ -101,6 +105,11 @@ class BenchmarkRunner:
                                         load_results = await asyncio.gather(*load_tasks)
                                         run_ctx_results.append(load_results)
 
+                                        if self.config.exit_on_first_fail and any(r.error for r in load_results):
+                                            first_error = next(r.error for r in load_results if r.error)
+                                            print(f"\n[Error] Stopping due to error in context load: {first_error}")
+                                            raise BenchmarkFailure()
+
                                         # Phase 2: Inference
                                         print(f"  Run {run+1}/{self.config.num_runs} (Inference, batch size {concurrency})...")
                                         inf_tasks = []
@@ -116,6 +125,11 @@ class BenchmarkRunner:
 
                                         batch_results = await asyncio.gather(*inf_tasks)
                                         run_std_results.append(batch_results)
+
+                                        if self.config.exit_on_first_fail and any(r.error for r in batch_results):
+                                            first_error = next(r.error for r in batch_results if r.error)
+                                            print(f"\n[Error] Stopping due to error in inference: {first_error}")
+                                            raise BenchmarkFailure()
 
                                     else:
                                         # Standard Run
@@ -134,6 +148,11 @@ class BenchmarkRunner:
 
                                         batch_results = await asyncio.gather(*batch_tasks)
                                         run_std_results.append(batch_results)
+
+                                        if self.config.exit_on_first_fail and any(r.error for r in batch_results):
+                                            first_error = next(r.error for r in batch_results if r.error)
+                                            print(f"\n[Error] Stopping due to error in standard run: {first_error}")
+                                            raise BenchmarkFailure()
 
 
                                     # Post Run Command
@@ -164,18 +183,27 @@ class BenchmarkRunner:
 
             self.results.save_report(self.config.save_result, self.config.result_format, max(self.config.concurrency_levels) if self.config.concurrency_levels else 1)
 
-        except (asyncio.CancelledError, KeyboardInterrupt):
+        except (asyncio.CancelledError, KeyboardInterrupt, BenchmarkFailure) as e:
             if self.results.runs:
-                print("\n[Interrupted] Saving partial results...")
-                if self.results.metadata is None:
-                    self.results.metadata = BenchmarkMetadata(
-                        version=__version__,
-                        timestamp=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%SZ"),
-                        latency_mode=self.config.latency_mode,
-                        latency_ms=latency * 1000,
-                        model=self.config.model,
-                        prefix_caching_enabled=self.config.enable_prefix_caching,
-                        max_concurrency=max_concurrency
-                    )
-                self.results.save_report(self.config.save_result, self.config.result_format, max_concurrency)
+                should_save = True
+                if isinstance(e, BenchmarkFailure) and self.config.no_results_on_fail:
+                    should_save = False
+                    print("\n[Failed] Results discarded per --no-results-on-fail.")
+
+                if should_save:
+                    print("\n[Interrupted/Failed] Saving partial results...")
+                    if self.results.metadata is None:
+                        self.results.metadata = BenchmarkMetadata(
+                            version=__version__,
+                            timestamp=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%SZ"),
+                            latency_mode=self.config.latency_mode,
+                            latency_ms=latency * 1000,
+                            model=self.config.model,
+                            prefix_caching_enabled=self.config.enable_prefix_caching,
+                            max_concurrency=max_concurrency
+                        )
+                    self.results.save_report(self.config.save_result, self.config.result_format, max_concurrency)
+            
+            if isinstance(e, BenchmarkFailure):
+                sys.exit(1)
             raise

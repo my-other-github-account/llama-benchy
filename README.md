@@ -176,6 +176,8 @@ Generally you don't need to disable prompt caching on the server, as a probabili
 -   `--format`: Output format: 'md', 'json', 'csv' (Default: 'md').
 -   `--save-total-throughput-timeseries`: Save calculated TOTAL throughput for each 1 second window inside peak throughput calculation during the run (default: off).
 -   `--save-all-throughput-timeseries`: Save calculated throughput timeseries for EACH individual request (default: off).
+-   `--exit-on-first-fail`: Stop execution on first failed test and exit with non-zero status.
+-   `--no-results-on-fail`: Prevent saving/printing any results when error is experienced, turns on --exit-on-first-fail as well.
 
 ### Metrics
 
