@@ -17,7 +17,8 @@ class BenchmarkConfig(BaseModel):
         description="Model name used in API calls (defaults to --model if not specified)",
     )
     tokenizer: Optional[str] = Field(
-        None, description="HuggingFace tokenizer name (defaults to model name)"
+        None,
+        description="Tokenizer to use (HF model name or local path; defaults to model name)",
     )
     pp_counts: List[int] = Field(
         ..., description="List of prompt processing token counts"
@@ -191,7 +192,7 @@ class BenchmarkConfig(BaseModel):
             "--tokenizer",
             type=str,
             default=None,
-            help="HuggingFace tokenizer name (defaults to model name)",
+            help="Tokenizer to use (HF model name or local path; defaults to model name)",
         )
         parser.add_argument(
             "--pp",
@@ -320,7 +321,9 @@ class BenchmarkConfig(BaseModel):
                 served_model_name_to_use = (
                     args.served_model_name if args.served_model_name else served_model
                 )
-                print(f"Auto-detected HF model: {model_to_use} (served as: {served_model_name_to_use})")
+                print(
+                    f"Auto-detected HF model: {model_to_use} (served as: {served_model_name_to_use})"
+                )
             except ValueError as e:
                 print(f"Error: {e}")
                 sys.exit(1)
